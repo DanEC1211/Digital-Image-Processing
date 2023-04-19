@@ -1,0 +1,107 @@
+clc
+close all
+warning off all
+
+%   LECTURA DE LA IMAGEN
+Imagen = imread('Practica_4_Imagen2.png');
+Imagen = rgb2gray(Imagen);
+imshow(Imagen);
+
+
+%   CLASIFICACIÓN Y PREDICCIÓN
+img=[1,2,3;4,5,6;7,8,9];
+[Filas, Columnas] = size(Imagen);
+p = zeros(Filas, Columnas);
+
+for i = 1: Filas
+    p(i, 1) = Imagen(Filas, 1);
+end
+for j = 1: Columnas
+    p(1,j)=Imagen(1,j);
+end
+
+min=256;
+max=0;
+
+for i = 2: Filas
+    for j = 2: Columnas
+        if ((j < Columnas) && (i < Filas))
+            b1 = double(double((p(i - 1, j - 1)) + double(p(i - 1, j)) + double(p(i - 1, j + 1)) + double(p(i, j - 1)) + double(p(i + 1, j - 1))) / 5);
+            b2 = double((p(i - 1, j) + p(i - 1, j + 1) + b1) / 3);   
+            b3 = double((p(i, j - 1) + p(i + 1, j - 1) + b1 + b2) / 4);
+            b4 = double((b1 + b2 + b3) / 3);
+            p(i, j) = int64(b1);
+            p(i, j + 1) = int64(b2);
+            p(i + 1, j) = int64(b3);
+            p(i + 1, j + 1) = int64(b4);
+            j = j + 1;
+        end
+    end
+    i = i + 1;
+end
+
+figure(2)
+imshow(uint8(p));
+e = (double(Imagen) - p);
+
+for i = 1: Filas
+    for j = 1: Columnas
+        if e(i, j) < 0
+           e(i, j) = 128;
+        end
+    end
+end
+
+figure(3)
+imshow(e);
+
+%   GENERACIÓN DE LA MATRIZ DE ERROR CUANTIFICADA (MEQ)
+bit=input('Reducir a: ');
+
+for i = 1: Filas
+    for j = 1: Columnas
+        if min > e(i, j)
+            min = e(i, j);
+        end
+        if max < e(i, j)
+            max = e(i, j); 
+        end
+    end
+end
+interval = double(double(max - min) / bit);
+
+for i = 1: bit
+    aux(i) = double(double(interval * double(i)) + double(min));
+end
+
+aux = [double(min), aux];
+aux2(1) = double(double(aux(2) - aux(1)) / 2);
+
+for i = 2: bit
+    aux2(i) = double((aux(i) - aux(i-1)) / 2);
+    aux2(i) = aux2(i) + aux(i);
+end
+
+%   GENERACIÓN DE LA MATRIZ DE ERROR CUANTIFICADA INVERSA (MEQ e-1)
+MEQ=zeros(Filas, Columnas);
+MEQ_1=zeros(Filas, Columnas);
+for i = 1: Filas
+    for j = 1: Columnas
+        for a = 1: bit
+            if (e(i, j) >= aux(a)) && (e(i, j) < aux(a + 1))
+                MEQ(i, j) = a;
+            end 
+            if e(i, j) == aux(a + 1)
+                MEQ(i, Columnas) = a;
+            end
+        end
+        for a = 1: bit
+            if MEQ(i, j) == a
+                MEQ_1(i, j) = aux2(a);
+            end  
+        end
+    end
+end
+MatRec=MEQ_1+MEQ;
+figure()
+imshow(uint8(MatRec));
